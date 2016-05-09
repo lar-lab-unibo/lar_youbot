@@ -30,6 +30,7 @@
 
 #define DEGtoRAD(angleDegrees) (angleDegrees * M_PI / 180.0)
 #define RADtoDEG(angleRadians) (angleRadians * 180.0 / M_PI)
+#define ISNAN(value) (value!=value)
 
 namespace lar_youbot {
 
@@ -38,33 +39,43 @@ namespace lar_youbot {
         YouBot();
         YouBot(const YouBot& orig);
         virtual ~YouBot();
-        void setBaseTransform(KDL::Frame frame);
-        bool computeBetaTheta(KDL::Frame& target, double& beta, double& theta);
-        bool computeEEOrientation(KDL::Frame& target,KDL::Frame& ee, double& theta5);
-        bool computeElbow(KDL::Frame& target, double& theta, double& theta1,double& theta2, double& theta3, double& theta4);
-        bool computeEE(KDL::Frame& target, double& theta5);
-        bool computeIK(KDL::Frame& target, double&x, double&y, double& theta, double& theta1, double& theta2, double& theta3, double& theta4, double& theta5);
-        void updateChain(double theta1, double theta2, double theta3, double theta4, double theta5);
-
+        
+        
+        //Ros messages management
         brics_actuator::JointPositions createJointPositionVoidMessage(bool populate_with_home_position = true);
         brics_actuator::JointPositions getJointPositionMessage();
 
+        //Home Position
         std::vector<double> const &getHomePosition();
 
-
+        //Current Position
         std::vector<double> const &getCurrentPosition();
-        void setCurrentPosition(std::vector<double>& joints_position);
-
-        //
-        std::vector<KDL::Frame> getArmChain(const std::vector<double>& joints_position,KDL::Frame arm_base = KDL::Frame::Identity());
+        void setCurrentArmPosition(std::vector<double>& joints_position);
+        void setCurrentArmPosition(double j1, double j2, double j3, double j4, double j5);
+        
+        //Redundancy set
+        void setRedundacyParameters(double p1,double p2,double p3);
+        
+        //FK
+        std::vector<KDL::Frame> getArmChain(const std::vector<double>& joints_position, KDL::Frame arm_base = KDL::Frame::Identity());
         std::vector<KDL::Frame> fk(const std::vector<double>& joints_position, KDL::Frame& ee);
         std::vector<KDL::Frame> fk(double x, double y, double theta, const std::vector<double>& joints_position, KDL::Frame& ee);
-        
+        //IK
+        bool ik(KDL::Frame& target, double&x, double&y, double& theta, std::vector<double>& joints_position);
+
+        //UTILS
+        void transformThetasToJoints(double theta1, double theta2, double theta3, double theta4, double theta5, std::vector<double>& out_joints);
+
         //DEBUG
         KDL::Frame TEMP;
+        std::vector<KDL::Frame> TEMP_V;
     protected:
         void init();
 
+        //Geometry of the robot
+        double H_joint_1;
+        double H_base_fk;
+        double H_arm_fk;
         double L;
         double L1;
         double L1_a;
@@ -73,25 +84,18 @@ namespace lar_youbot {
         double L4;
         double L5;
 
-        KDL::Frame link0_link1;
-        KDL::Frame link1_link2;
-        KDL::Frame link2_link3;
-        KDL::Frame link3_link4;
-        KDL::Frame link4_link5;
-        KDL::Frame armbase_ee;
-        
+        //Redundancy parameters
+        double redundancy_p1;
+        double redundancy_p2;
+        double redundancy_p3;
 
-        KDL::Frame base_transform;
-        KDL::Frame T_floor_base;
-        KDL::Frame T_base_armbase;
-        KDL::Frame T_floor_armbase;
-
+        //Robot status
         brics_actuator::JointPositions current_position_message;
         std::vector<double> current_position;
         std::vector<double> limits_min;
         std::vector<double> limits_max;
         std::vector<double> home_position;
-        std::vector<double> signs;
+        std::vector<double> signs_for_homing;
 
     };
 }

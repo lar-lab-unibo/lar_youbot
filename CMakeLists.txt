@@ -7,7 +7,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  joy   
   roscpp     
   actionlib  
   control_msgs
@@ -44,11 +43,13 @@ include_directories(
 )
 add_library(
     lar_youbot  
+    src/lar_youbot/PIDController.cpp
     src/lar_youbot/YouBot.cpp
 )
 
 
-add_executable(testing_node src/nodes/test.cpp)
-target_link_libraries(testing_node ${catkin_LIBRARIES} ${orocos_kdl_LIBRARIES} lar_youbot )
+#NODE youbot_playground
+add_executable(youbot_playground src/nodes/youbot_playground.cpp)
+target_link_libraries(youbot_playground ${catkin_LIBRARIES} ${orocos_kdl_LIBRARIES} lar_youbot )
 
 
