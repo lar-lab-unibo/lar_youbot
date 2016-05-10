@@ -33,6 +33,11 @@ namespace lar_youbot {
      * Initialize Youbot parameters.
      */
     void YouBot::init() {
+        //Wheels
+        this->wheels_speed.push_back(0.0); // Front Right
+        this->wheels_speed.push_back(0.0); // Front Left
+        this->wheels_speed.push_back(0.0); // Back Left
+        this->wheels_speed.push_back(0.0); // Back Right
 
         //Current position
         this->current_position.push_back(0.0);
@@ -69,9 +74,12 @@ namespace lar_youbot {
 
         //LINKS
         this->H_joint_1 = 0.246; //Height of joint 1 reference frame from the floor
-        this->H_base_fk = 0.0953; //Not sure, mismatch between SIMULATOR and REAL ROBOT
+        this->H_base_fk = 0.084; //Not sure, mismatch between SIMULATOR and REAL ROBOT
         this->H_arm_fk = 0.08; //Not sure, mismatch between SIMULATOR and REAL ROBOT
-        this->L = 0.17; //Distance between center of the mobile base and the base of the arm
+        this->W_la = 0.158;
+        this->W_lb = 0.228;
+        this->W_R = 0.05;
+        this->L = 0.17; //ORIGINAL 0.143 //Distance between center of the mobile base and the base of the arm
         this->L1 = 0.075;
         this->L1_a = 0.033;
         this->L2 = 0.155;
@@ -352,5 +360,40 @@ namespace lar_youbot {
     const std::vector<double>& YouBot::getCurrentPosition() {
         return this->current_position;
     }
+
+    /**
+     * Sets the wheels instant speed. DOESN'T move the base, only used for dynamics computations
+     * @param w1 Front Right Wheel
+     * @param w2 Front Left Wheel
+     * @param w3 Back Left Wheel
+     * @param w4 Back Right Wheel
+     */
+    void YouBot::setWheelsInstantSpeed(double w1, double w2, double w3, double w4) {
+        this->wheels_speed[0] = w1;
+        this->wheels_speed[1] = w2;
+        this->wheels_speed[2] = w3;
+        this->wheels_speed[3] = w4;
+    }
+
+    /**
+     * Gets the instant speed of the base in Robot Coordinate frame
+     * @param x X speed
+     * @param y Y speed
+     * @param theta Theta speed
+     */
+    void YouBot::getBaseInstantSpeed(double& x, double& y, double& theta) {
+        double w1 = this->wheels_speed[0];
+        double w2 = this->wheels_speed[1];
+        double w3 = this->wheels_speed[2];
+        double w4 = this->wheels_speed[3];
+
+        double L = this->W_la + this->W_lb;
+        double coeff = this->W_R / (L * 4);
+        x = coeff * (L * w1 + L * w2 + L * w3 + L * w4);
+        y = coeff * (L * w1 - L * w2 + L * w3 - L * w4);
+        theta = coeff * (w1 - w2 - w3 + w4);
+    }
+
+
 
 }

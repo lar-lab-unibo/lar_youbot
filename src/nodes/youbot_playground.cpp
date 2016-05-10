@@ -7,9 +7,9 @@
 #include <tf/transform_broadcaster.h>
 #include "tf_conversions/tf_kdl.h"
 
-#include "sensor_msgs/Joy.h"
 #include "geometry_msgs/Pose.h"
 #include "geometry_msgs/PoseStamped.h"
+#include "sensor_msgs/JointState.h"
 
 #include <kdl/frames.hpp>
 #include <kdl/jntarray.hpp>
@@ -17,14 +17,20 @@
 #include "lar_youbot/YouBot.h"
 #include "lar_youbot/PIDController.h"
 
+//Ros interface
 ros::Subscriber subscriber_youbot_pose;
 ros::Subscriber subscriber_target_pose;
+ros::Subscriber subscriber_youbot_joints;
 ros::Publisher publisher_mobile_base_vel;
 ros::Publisher publisher_arm_joints;
 geometry_msgs::Twist mobile_base_twist;
 
+//Youbot
+lar_youbot::YouBot youbot;
+
 //Vrep Green Sphere Target
 KDL::Frame vrep_target;
+KDL::Frame testing_odometry;
 
 //Mobile Base Controls
 double x_current, y_current, theta_current;
@@ -72,6 +78,20 @@ void frameToPose(KDL::Frame& frame, geometry_msgs::Pose& pose) {
 }
 
 /**
+ * Joint state callback. Contains also WHEEL feedback
+ * @param msg
+ */
+void jointstate_cb(const sensor_msgs::JointState& msg) {
+
+    //The address in joints array may change in real robot. CHECK!
+    double w1 = msg.velocity[7];
+    double w2 = msg.velocity[5];
+    double w3 = msg.velocity[2];
+    double w4 = msg.velocity[0];
+    youbot.setWheelsInstantSpeed(w1, w2, w3, w4);
+}
+
+/**
  * Callback for Target Pose
  * @param msg
  */
@@ -111,34 +131,47 @@ int main(int argc, char** argv) {
     //Topics
     subscriber_youbot_pose = nh.subscribe("/youbotPose", 1, youbot_pos_cb);
     subscriber_target_pose = nh.subscribe("/target", 1, target_pos_cb);
+    subscriber_youbot_joints = nh.subscribe("/joint_states", 1, jointstate_cb);
     publisher_mobile_base_vel = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
     publisher_arm_joints = nh.advertise<brics_actuator::JointPositions>("/arm_controller/position_command", 1);
 
-    //Youbot
-    lar_youbot::YouBot youbot;
+    //debug
+    ros::Publisher debug_publisher = nh.advertise<geometry_msgs::PoseStamped>("/target_debug", 1);
+    geometry_msgs::PoseStamped debug_pose_stamped;
+
+
+    //Test Odometry
+    testing_odometry = KDL::Frame(KDL::Rotation::RotZ(M_PI/2.0), KDL::Vector(0.0,0.0,0.4));
+
 
     // Spin & Time
     ros::Rate r(100);
     double time;
-
+    ros::Time ros_time = ros::Time::now();
+    ros::Duration delta_time = ros::Time::now() - ros_time;
     //Main Loop
     while (nh.ok()) {
 
+        //ROS time
+        delta_time = ros::Time::now() - ros_time;
+        ros_time = ros::Time::now();
+
         //Current Time
-        time = ros::Time().now().toNSec()*0.000000001; // Converts Nanoseconds to Seconds
-        
+        time = ros_time.toSec(); // ros::Time().now().toNSec()*0.000000001; // Converts Nanoseconds to Seconds
+
         //Youbot Redundancy control. Comment those lines to disable moving solution
         double P1 = (M_PI / 2.0) * sin(time * 0.3); // Rotation of the base w.r.t. arm plane. Try to SET always 0
         double P2 = 0.35 + sin(time)*0.1; // Distance between target and the base of the arm. Try to SET always 0
         double P3 = 1; // Elbow UP
         youbot.setRedundacyParameters(P1, P2, P3);
 
+
         // Computes IK of Base+Arm
         double x, y, theta;
         std::vector<double> joints;
         bool good_solution = youbot.ik(vrep_target, x, y, theta, joints);
-        ROS_INFO("Solution %s",good_solution?"GOOD":"FAIL");
-        
+        ROS_INFO("Solution %s", good_solution ? "GOOD" : "FAIL");
+
         //Arm Setpoint
         if (good_solution) {
             youbot.setCurrentArmPosition(joints);
@@ -172,6 +205,8 @@ int main(int argc, char** argv) {
             mobile_base_twist.linear.y = y_dot_youbot; //speed
             mobile_base_twist.angular.z = theta_dot; //angle
             publisher_mobile_base_vel.publish(mobile_base_twist);
+
+
         }
 
         //Spin loop

@@ -39,8 +39,8 @@ namespace lar_youbot {
         YouBot();
         YouBot(const YouBot& orig);
         virtual ~YouBot();
-        
-        
+
+
         //Ros messages management
         brics_actuator::JointPositions createJointPositionVoidMessage(bool populate_with_home_position = true);
         brics_actuator::JointPositions getJointPositionMessage();
@@ -52,10 +52,14 @@ namespace lar_youbot {
         std::vector<double> const &getCurrentPosition();
         void setCurrentArmPosition(std::vector<double>& joints_position);
         void setCurrentArmPosition(double j1, double j2, double j3, double j4, double j5);
-        
+
+        //Wheels
+        void setWheelsInstantSpeed(double w1, double w2, double w3, double w4);
+        void getBaseInstantSpeed(double& x, double& y, double& theta);
+
         //Redundancy set
-        void setRedundacyParameters(double p1,double p2,double p3);
-        
+        void setRedundacyParameters(double p1, double p2, double p3);
+
         //FK
         std::vector<KDL::Frame> getArmChain(const std::vector<double>& joints_position, KDL::Frame arm_base = KDL::Frame::Identity());
         std::vector<KDL::Frame> fk(const std::vector<double>& joints_position, KDL::Frame& ee);
@@ -76,6 +80,9 @@ namespace lar_youbot {
         double H_joint_1;
         double H_base_fk;
         double H_arm_fk;
+        double W_la; // Wheel distance from center along y
+        double W_lb; // Wheel distance form center along x
+        double W_R; // Wheel radius
         double L;
         double L1;
         double L1_a;
@@ -96,6 +103,9 @@ namespace lar_youbot {
         std::vector<double> limits_max;
         std::vector<double> home_position;
         std::vector<double> signs_for_homing;
+
+        //Wheels
+        std::vector<double> wheels_speed;
 
     };
 }
